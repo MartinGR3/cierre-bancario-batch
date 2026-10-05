@@ -42,12 +42,24 @@ public class CierreJobConfig {
                 .build();
     }
 
+    @Bean
+    public Step contarArchivosStep(JobRepository jobRepository) {
+        return new StepBuilder("contarArchivosStep", jobRepository)
+                .tasklet((contribution, chunkContext) -> {
+                    long cantidad=Files.list(Path.of("datos")).count();
+                    System.out.println(">>> Archivos en datos/: " + cantidad);
+                    return RepeatStatus.FINISHED;
+                })
+                .build();
+    }
+
     // El Job: el contenedor de los steps. Primero el saludo, después la revisión del archivo.
     @Bean
-    public Job cierreDelDiaJob(JobRepository jobRepository, Step saludoStep, Step verificarArchivoStep) {
+    public Job cierreDelDiaJob(JobRepository jobRepository, Step saludoStep, Step verificarArchivoStep, Step contarArchivosStep) {
         return new JobBuilder("cierreDelDiaJob", jobRepository)
                 .start(saludoStep)
                 .next(verificarArchivoStep)
+                .next(contarArchivosStep)
                 .build();
     }
 }
