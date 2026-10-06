@@ -40,3 +40,31 @@
    otra ejecución de la misma? ¿Por qué lo crees?
 
     Creo que va a ser otra ejecución de la misma instancia.Lo creo porque la primera vez terminó FAILED (no existía el archivo) y no COMPLETED, sí me debería dejar volver a correrla.
+
+
+## Día 2 · El primer chunk
+
+### Boleto de salida
+
+1. ¿Qué diferencia hay entre un step de tipo Tasklet y uno de tipo chunk?
+
+    Un Tasklet sirve para hacer una tarea específica, mientras que un Chunk procesa los datos por grupos, leyendo, procesando y escribiendo.
+
+2. ¿Qué hace cada una de las tres piezas de un chunk? ¿Cuál es opcional?
+
+    - Reader: lee los datos.
+    - Processor: procesa o transforma los datos.
+    - Writer: escribe los datos.
+    El Processor es opcional, porque los datos pueden pasar directamente del Reader al Writer.
+
+3. Con 45 movimientos y chunks de 10, ¿cuántos commits habría? ¿Y con chunks de 50?
+
+    Con chunks de 10 habría 5 commits: 10 + 10 + 10 + 10 + 5.
+    Con chunks de 50 habría 1 commit, porque los 45 movimientos caben en un solo chunk.
+
+4. ¿Por qué el Escritor recibe el chunk completo y no un movimiento a la vez?
+    
+    Porque así puede escribir varios registros juntos y hacer menos operaciones, lo que hace que el procesamiento sea más eficiente.
+
+5. Mi predicción de la MP-3, paso 1: ¿qué habría pasado sin el Procesador?
+    Los movimientos pasarían directamente del Reader al Writer, sin ninguna transformación o validación intermedia.
