@@ -68,3 +68,33 @@
 
 5. Mi predicción de la MP-3, paso 1: ¿qué habría pasado sin el Procesador?
     Los movimientos pasarían directamente del Reader al Writer, sin ninguna transformación o validación intermedia.
+
+## Día 3 · Parámetros, fallas y reinicio
+
+### Boleto de salida
+
+1. ¿Qué diferencia hay entre una JobInstance y una JobExecution? Usa como ejemplo el cierre del 25.
+
+Una JobInstance es el trabajo de un día específico, por ejemplo, el cierre del 25 de diciembre.
+Una JobExecution es cada intento de ejecutar ese trabajo.
+En el cierre del 25 tuvo dos ejecuciones: la 4 falló y la 8 (en mi caso 10) terminó correctamente.
+
+
+2. ¿En qué caso Spring Batch se niega a correr un cierre, y en qué caso lo reinicia?
+
+Spring Batch se niega a correrlo cuando la misma instancia ya terminó en COMPLETED.
+Si la ejecución anterior terminó en FAILED, Spring Batch puede reiniciar esa misma instancia desde donde se quedó.
+
+3. En el reinicio del día 5, ¿por qué el step de carga leyó 10 movimientos y no 20?
+
+Porque el primer chunk de 10 movimientos ya había sido procesado y confirmado. Cuando el step falló en el segundo chunk, esos 10 ya quedaron guardados.
+Al reiniciar, Spring Batch no vuelve a hacer los 10 que ya confirmó, sino que continúa con los que faltan. Por eso en el reinicio leyó 10, y al final quedaron los 20 movimientos en la tabla.
+
+4. ¿Qué diferencia hay entre un movimiento **filtrado** y uno **omitido**?
+
+Un movimiento filtrado es uno que el Procesador decide no guardar. Por ejemplo, si el tipo no es DEPOSITO ni RETIRO, el procesador devuelve null y Spring Batch lo cuenta en FILTER_COUNT.
+Un movimiento omitido (skip) es uno que tiene un error al leerlo, pero Spring Batch está configurado para tolerarlo y saltarlo hasta llegar a un límite.
+
+5. ¿Por qué importa el código de salida, si el estado ya queda en las tablas?
+
+El código de salida importa porque el planificador lo usa para saber si el proceso terminó bien o falló. El 0 significa bien y otro número significa error.
