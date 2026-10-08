@@ -75,26 +75,55 @@
 
 1. ¿Qué diferencia hay entre una JobInstance y una JobExecution? Usa como ejemplo el cierre del 25.
 
-Una JobInstance es el trabajo de un día específico, por ejemplo, el cierre del 25 de diciembre.
-Una JobExecution es cada intento de ejecutar ese trabajo.
-En el cierre del 25 tuvo dos ejecuciones: la 4 falló y la 8 (en mi caso 10) terminó correctamente.
+    Una JobInstance es el trabajo de un día específico, por ejemplo, el cierre del 25 de diciembre.
+    Una JobExecution es cada intento de ejecutar ese trabajo.
+    En el cierre del 25 tuvo dos ejecuciones: la 4 falló y la 8 (en mi caso 10) terminó correctamente.
 
 
 2. ¿En qué caso Spring Batch se niega a correr un cierre, y en qué caso lo reinicia?
 
-Spring Batch se niega a correrlo cuando la misma instancia ya terminó en COMPLETED.
-Si la ejecución anterior terminó en FAILED, Spring Batch puede reiniciar esa misma instancia desde donde se quedó.
+    Spring Batch se niega a correrlo cuando la misma instancia ya terminó en COMPLETED.
+    Si la ejecución anterior terminó en FAILED, Spring Batch puede reiniciar esa misma instancia desde donde se quedó.
 
 3. En el reinicio del día 5, ¿por qué el step de carga leyó 10 movimientos y no 20?
 
-Porque el primer chunk de 10 movimientos ya había sido procesado y confirmado. Cuando el step falló en el segundo chunk, esos 10 ya quedaron guardados.
-Al reiniciar, Spring Batch no vuelve a hacer los 10 que ya confirmó, sino que continúa con los que faltan. Por eso en el reinicio leyó 10, y al final quedaron los 20 movimientos en la tabla.
+    Porque el primer chunk de 10 movimientos ya había sido procesado y confirmado. Cuando el step falló en el segundo chunk, esos 10 ya quedaron guardados.
+    Al reiniciar, Spring Batch no vuelve a hacer los 10 que ya confirmó, sino que continúa con los que faltan. Por eso en el reinicio leyó 10, y al final quedaron los 20 movimientos en la tabla.
 
 4. ¿Qué diferencia hay entre un movimiento **filtrado** y uno **omitido**?
 
-Un movimiento filtrado es uno que el Procesador decide no guardar. Por ejemplo, si el tipo no es DEPOSITO ni RETIRO, el procesador devuelve null y Spring Batch lo cuenta en FILTER_COUNT.
-Un movimiento omitido (skip) es uno que tiene un error al leerlo, pero Spring Batch está configurado para tolerarlo y saltarlo hasta llegar a un límite.
+    Un movimiento filtrado es uno que el Procesador decide no guardar. Por ejemplo, si el tipo no es DEPOSITO ni RETIRO, el procesador devuelve null y Spring Batch lo cuenta en FILTER_COUNT.
+    Un movimiento omitido (skip) es uno que tiene un error al leerlo, pero Spring Batch está configurado para tolerarlo y saltarlo hasta llegar a un límite.
 
 5. ¿Por qué importa el código de salida, si el estado ya queda en las tablas?
 
-El código de salida importa porque el planificador lo usa para saber si el proceso terminó bien o falló. El 0 significa bien y otro número significa error.
+    El código de salida importa porque el planificador lo usa para saber si el proceso terminó bien o falló. El 0 significa bien y otro número significa error.
+
+## Día 4 · De MySQL a MongoDB
+
+### Boleto de salida
+
+1. ¿Qué hace cada uno de los tres steps de tu Job, y de qué tipo es cada uno?
+
+    - verificarArchivoStep: revisa que exista el archivo CSV del día. Es un Tasklet.
+    - cargarMovimientosStep: lee los movimientos del archivo, los procesa y los guarda en MySQL. Es un Chunk y trabaja de 10 en 10.
+    - publicarSaldosStep: lee los saldos desde MySQL y los guarda en MongoDB. También es un Chunk y trabaja de 3 en 3.
+
+2. ¿Por qué el cierre del 9 no duplicó los saldos, y el del 10 (sin `@Id`) sí?
+
+    El cierre del 9 no duplicó porque usamos @Id y la cuenta se convierte en el _id de MongoDB. Entonces, si la cuenta ya existe, se actualiza el documento en lugar de crear otro.
+    El cierre del 10 sí duplicó porque quitamos @Id. MongoDB creó un _id diferente para cada documento, por eso volvió a guardar las mismas cuentas como documentos nuevos.
+
+3. Al reiniciar el cierre del 11, ¿por qué no se cargó otra vez el archivo?
+
+    Porque los primeros dos steps ya estaban en COMPLETED antes de que fallara el tercer step. Spring Batch sabe que ya terminaron y cuando reiniciamos solo vuelve a ejecutar el step que faltaba, que era publicarSaldosStep. Por eso no volvió a cargar el archivo.     
+
+4. ¿Qué diferencia hay entre `spring-boot-starter-data-mongodb` y «Spring Batch MongoDB» (`batch-data-mongodb`)?
+
+    - spring-boot-starter-data-mongodb sirve para que nuestra aplicación pueda trabajar con MongoDB, en este caso para guardar los saldos.
+    - batch-data-mongodb sirve para que Spring Batch guarde sus propias tablas de control en MongoDB en lugar de MySQL. En este caso no usamos ese, porque las tablas BATCH_* siguen estando en MySQL.
+
+## Lo que aprendí esta semana
+
+Esta semana aprendí que un proceso batch sirve para procesar datos de forma automática. Un Job es el trabajo completo y puede tener varios steps. Los steps pueden ser de tipo Tasklet o Chunk. En un Chunk tenemos un lector(Reader), un procesador(Processor) y un escritor(Writter). También aprendí que Spring Batch guarda información de las ejecuciones, si un step falla, podemos reiniciar el Job, cuando lo reiniciamos, los steps que ya terminaron no se vuelven a ejecutar esto ayuda a que los datos no se carguen otra vez.  
+
